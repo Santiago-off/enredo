@@ -27,3 +27,16 @@ CREATE TABLE IF NOT EXISTS rate (
   ts INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_rate ON rate(iph, action, ts);
+
+CREATE TABLE IF NOT EXISTS bans (
+  iph TEXT PRIMARY KEY,
+  created INTEGER,
+  reason TEXT
+);
+
+CREATE TABLE IF NOT EXISTS reports (
+  post_id TEXT,
+  iph TEXT,
+  created INTEGER,
+  PRIMARY KEY (post_id, iph)
+);

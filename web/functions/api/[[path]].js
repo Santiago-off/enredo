@@ -72,6 +72,11 @@ async function rateOk(env, iph, action, max, windowSec) {
   return true;
 }
 
+async function isBanned(env, iph) {
+  const b = await env.DB.prepare("SELECT iph FROM bans WHERE iph=?").bind(iph).first();
+  return !!b;
+}
+
 export async function onRequest(context) {
   const { request, env, params } = context;
   const route = Array.isArray(params.path) ? params.path.join("/") : params.path || "";
@@ -117,7 +122,8 @@ export async function onRequest(context) {
       const ip = request.headers.get("CF-Connecting-IP") || "";
       if (!(await verifyTurnstile(b.token, ip, env))) return json({ error: "Verificación anti-bot fallida. Recarga e inténtalo de nuevo." }, 403);
       const iph = await ipHash(request, env);
-      if (!(await rateOk(env, iph, "post", 5, 600))) return json({ error: "Has subido demasiados archivos en poco tiempo. Espera un rato." }, 429);
+      if (await isBanned(env, iph)) return json({ error: "No tienes permiso para publicar." }, 403);
+      if (!(await rateOk(env, iph, "post", 3, 600))) return json({ error: "Has publicado demasiado en poco tiempo. Espera un rato." }, 429);
       const file = String(b.file || "");
       if (file.length > MAX_FILE) return json({ error: "El archivo es demasiado grande." }, 413);
       let data;
@@ -135,7 +141,8 @@ export async function onRequest(context) {
       const ip = request.headers.get("CF-Connecting-IP") || "";
       if (!(await verifyTurnstile(b.token, ip, env))) return json({ error: "Verificación anti-bot fallida." }, 403);
       const iph = await ipHash(request, env);
-      if (!(await rateOk(env, iph, "comment", 20, 600))) return json({ error: "Demasiados comentarios en poco tiempo." }, 429);
+      if (await isBanned(env, iph)) return json({ error: "No tienes permiso para comentar." }, 403);
+      if (!(await rateOk(env, iph, "comment", 15, 600))) return json({ error: "Demasiados comentarios en poco tiempo." }, 429);
       const body = String(b.body || "").slice(0, MAX_COMMENT).trim();
       if (!body) return json({ error: "Escribe algo." }, 400);
       const post = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND hidden=0").bind(b.postId).first();
@@ -145,12 +152,58 @@ export async function onRequest(context) {
       return json({ ok: true });
     }
 
-    // Reportar (auto-oculta a partir de 5)
+    // Reportar (1 por persona y post; auto-oculta con 4 reportes distintos)
     if (route === "report" && method === "POST") {
       const b = await request.json().catch(() => ({}));
-      await env.DB.prepare("UPDATE posts SET reports = reports + 1 WHERE id=?").bind(b.postId).run();
-      await env.DB.prepare("UPDATE posts SET hidden = 1 WHERE id=? AND reports >= 5").bind(b.postId).run();
+      if (!b.postId) return json({ error: "Falta el id." }, 400);
+      const iph = await ipHash(request, env);
+      if (!(await rateOk(env, iph, "report", 15, 600))) return json({ error: "Demasiados reportes en poco tiempo." }, 429);
+      const r = await env.DB.prepare("INSERT OR IGNORE INTO reports (post_id, iph, created) VALUES (?,?,?)").bind(b.postId, iph, Date.now()).run();
+      if (r.meta && r.meta.changes) {
+        await env.DB.prepare("UPDATE posts SET reports = reports + 1 WHERE id=?").bind(b.postId).run();
+        await env.DB.prepare("UPDATE posts SET hidden = 1 WHERE id=? AND reports >= 4").bind(b.postId).run();
+      }
       return json({ ok: true });
+    }
+
+    // ---- Moderación (solo con la clave del dueño) ----
+    if (route === "mod" && method === "POST") {
+      if (!env.MOD_KEY || request.headers.get("X-Mod-Key") !== env.MOD_KEY) return json({ error: "No autorizado" }, 403);
+      const b = await request.json().catch(() => ({}));
+      const a = b.action;
+      if (a === "list") {
+        const posts = (await env.DB.prepare("SELECT id, created, title, device_count, comments, reports, hidden, iph FROM posts ORDER BY created DESC LIMIT 100").all()).results || [];
+        const comments = (await env.DB.prepare("SELECT id, post_id, created, body, iph FROM comments ORDER BY created DESC LIMIT 150").all()).results || [];
+        const bans = (await env.DB.prepare("SELECT iph, created, reason FROM bans ORDER BY created DESC LIMIT 100").all()).results || [];
+        return json({ posts, comments, bans });
+      }
+      if (a === "delPost") {
+        await env.DB.prepare("DELETE FROM comments WHERE post_id=?").bind(b.id).run();
+        await env.DB.prepare("DELETE FROM reports WHERE post_id=?").bind(b.id).run();
+        await env.DB.prepare("DELETE FROM posts WHERE id=?").bind(b.id).run();
+        return json({ ok: true });
+      }
+      if (a === "hide") { await env.DB.prepare("UPDATE posts SET hidden=? WHERE id=?").bind(b.hidden ? 1 : 0, b.id).run(); return json({ ok: true }); }
+      if (a === "delComment") {
+        const c = await env.DB.prepare("SELECT post_id FROM comments WHERE id=?").bind(b.id).first();
+        await env.DB.prepare("DELETE FROM comments WHERE id=?").bind(b.id).run();
+        if (c) await env.DB.prepare("UPDATE posts SET comments = MAX(0, comments-1) WHERE id=?").bind(c.post_id).run();
+        return json({ ok: true });
+      }
+      if (a === "ban" || a === "purgeIp") {
+        let iph = b.iph;
+        if (!iph && b.postId) { const p = await env.DB.prepare("SELECT iph FROM posts WHERE id=?").bind(b.postId).first(); iph = p && p.iph; }
+        if (!iph && b.commentId) { const c = await env.DB.prepare("SELECT iph FROM comments WHERE id=?").bind(b.commentId).first(); iph = c && c.iph; }
+        if (!iph) return json({ error: "No se encontró el autor." }, 400);
+        if (a === "purgeIp") {
+          await env.DB.prepare("DELETE FROM comments WHERE iph=?").bind(iph).run();
+          await env.DB.prepare("DELETE FROM posts WHERE iph=?").bind(iph).run();
+        }
+        await env.DB.prepare("INSERT OR IGNORE INTO bans (iph, created, reason) VALUES (?,?,?)").bind(iph, Date.now(), String(b.reason || (a === "purgeIp" ? "purga" : ""))).run();
+        return json({ ok: true, iph });
+      }
+      if (a === "unban") { await env.DB.prepare("DELETE FROM bans WHERE iph=?").bind(b.iph).run(); return json({ ok: true }); }
+      return json({ error: "Acción desconocida" }, 400);
     }
 
     return json({ error: "Ruta no encontrada" }, 404);

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0D1117">
+<title>Moderación · Enredo</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/styles.css">
+<style>
+  .adm{max-width:900px;margin:0 auto;padding:20px clamp(16px,4vw,28px) 60px}
+  .adm h1{font-size:22px}
+  .keyrow{display:flex;gap:10px;margin:14px 0;flex-wrap:wrap}
+  .keyrow input{flex:1;min-width:200px;padding:11px 13px;border:1px solid var(--line-2);border-radius:10px;background:var(--bg);color:var(--ink);font-family:var(--mono)}
+  .mgroup{margin-top:24px}
+  .mgroup h2{font-size:15px;color:var(--ink-mute);text-transform:uppercase;letter-spacing:.05em}
+  .mrow{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px;font-size:13.5px}
+  .mrow.hid{opacity:.55;border-style:dashed}
+  .mrow .t{font-weight:700}
+  .mrow .meta{color:var(--ink-mute);font-size:12px;font-family:var(--mono);margin:3px 0 8px}
+  .mrow .body{color:var(--ink-soft);margin:2px 0 8px}
+  .mbtns{display:flex;gap:6px;flex-wrap:wrap}
+  .mbtn{border:1px solid var(--line-2);background:var(--panel-2);color:var(--ink-soft);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer}
+  .mbtn:hover{color:var(--ink)} .mbtn.d{color:#FCA5A5;border-color:#5b2a2a} .mbtn.b{color:#FBBF24}
+  .flag{color:var(--warn)}
+</style>
+</head>
+<body>
+<header class="site"><a class="brand" href="/"><span>Enredo</span></a><nav><a href="/foro.html">Foro</a></nav></header>
+<div class="adm">
+  <h1>Panel de moderación</h1>
+  <p style="color:var(--ink-soft);font-size:14px">Solo tú. Pega tu clave de moderación y gestiona el foro: borrar, ocultar, banear o purgar a un autor.</p>
+  <div class="keyrow">
+    <input type="password" id="key" placeholder="Clave de moderación (MOD_KEY)">
+    <button class="btn btn--primary" id="load" type="button">Cargar</button>
+  </div>
+  <p id="msg" style="color:var(--ink-mute);font-size:13px"></p>
+
+  <div class="mgroup"><h2>Publicaciones</h2><div id="posts"></div></div>
+  <div class="mgroup"><h2>Comentarios recientes</h2><div id="comments"></div></div>
+  <div class="mgroup"><h2>Baneados</h2><div id="bans"></div></div>
+</div>
+<div class="toasts" id="toasts"></div>
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s==null?"":s).replace(/[&<>"]/g,(c)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const key = () => $("#key").value.trim();
+  try { const k = localStorage.getItem("enredo.modkey"); if (k) $("#key").value = k; } catch {}
+  function toast(m,ok=true){ const t=document.createElement("div"); t.className="toast toast--"+(ok?"ok":"err"); t.textContent=m; $("#toasts").appendChild(t); setTimeout(()=>t.remove(),2600); }
+  const fdate = (ts) => new Date(ts).toLocaleString("es-ES",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
+  async function mod(body){
+    const r = await fetch("/api/mod",{method:"POST",headers:{"content-type":"application/json","X-Mod-Key":key()},body:JSON.stringify(body)});
+    const d = await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||("Error "+r.status)); return d;
+  }
+  async function load(){
+    try{ localStorage.setItem("enredo.modkey", key()); }catch{}
+    $("#msg").textContent="Cargando…";
+    try{
+      const d = await mod({action:"list"});
+      $("#msg").textContent = `${d.posts.length} publicaciones · ${d.comments.length} comentarios · ${d.bans.length} baneados`;
+      $("#posts").innerHTML = d.posts.map(p=>`<div class="mrow ${p.hidden?"hid":""}">
+        <div class="t">${esc(p.title)} ${p.reports?`<span class="flag">⚑ ${p.reports} reportes</span>`:""} ${p.hidden?"· (oculto)":""}</div>
+        <div class="meta">${p.id} · ${fdate(p.created)} · ${p.device_count} equipos · ${p.comments} coment. · autor ${p.iph||"?"}</div>
+        <div class="mbtns">
+          <button class="mbtn" data-a="hide" data-id="${p.id}" data-h="${p.hidden?0:1}">${p.hidden?"Mostrar":"Ocultar"}</button>
+          <button class="mbtn d" data-a="delPost" data-id="${p.id}">Borrar</button>
+          <button class="mbtn b" data-a="ban" data-post="${p.id}">Banear autor</button>
+          <button class="mbtn d" data-a="purgeIp" data-post="${p.id}">Purgar autor</button>
+        </div></div>`).join("") || "<p style='color:var(--ink-mute)'>Sin publicaciones.</p>";
+      $("#comments").innerHTML = d.comments.map(c=>`<div class="mrow">
+        <div class="body">${esc(c.body)}</div>
+        <div class="meta">${fdate(c.created)} · en ${c.post_id} · autor ${c.iph||"?"}</div>
+        <div class="mbtns"><button class="mbtn d" data-a="delComment" data-id="${c.id}">Borrar</button><button class="mbtn b" data-a="ban" data-comment="${c.id}">Banear autor</button></div></div>`).join("") || "<p style='color:var(--ink-mute)'>Sin comentarios.</p>";
+      $("#bans").innerHTML = d.bans.map(b=>`<div class="mrow"><div class="meta">${b.iph} · ${fdate(b.created)} · ${esc(b.reason||"")}</div><div class="mbtns"><button class="mbtn" data-a="unban" data-iph="${b.iph}">Quitar ban</button></div></div>`).join("") || "<p style='color:var(--ink-mute)'>Nadie baneado.</p>";
+    }catch(e){ $("#msg").textContent=""; toast(e.message,false); }
+  }
+  document.addEventListener("click", async (e)=>{
+    const btn = e.target.closest(".mbtn"); if(!btn) return;
+    const a = btn.dataset.a;
+    const body = {action:a};
+    if(btn.dataset.id) body.id = btn.dataset.id;
+    if(btn.dataset.post) body.postId = btn.dataset.post;
+    if(btn.dataset.comment) body.commentId = btn.dataset.comment;
+    if(btn.dataset.iph) body.iph = btn.dataset.iph;
+    if(a==="hide") body.hidden = btn.dataset.h==="1";
+    if((a==="delPost"||a==="purgeIp") && !confirm("¿Seguro?")) return;
+    try{ await mod(body); toast("Hecho"); load(); }catch(err){ toast(err.message,false); }
+  });
+  $("#load").addEventListener("click", load);
+  $("#key").addEventListener("keydown",(e)=>{ if(e.key==="Enter") load(); });
+})();
+</script>
+</body>
+</html>
