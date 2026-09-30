@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0D1117">
+<title>Foro de redes · Enredo</title>
+<meta name="description" content="Comparte tu red (censurada, sin datos privados) y compárala con otras. Foro anónimo y en tiempo real de Enredo.">
+<link rel="canonical" href="https://enredo.pages.dev/foro.html">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Foro de redes · Enredo">
+<meta property="og:description" content="Comparte tu red censurada y compárala con otras. Anónimo y en tiempo real.">
+<meta property="og:type" content="website"><meta property="og:url" content="https://enredo.pages.dev/foro.html">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8B5CF6"/><stop offset="1" stop-color="#22D3EE"/></linearGradient></defs><circle cx="16" cy="6" r="3.2" fill="url(#g)"/><circle cx="6" cy="24" r="3.2" fill="url(#g)"/><circle cx="26" cy="24" r="3.2" fill="url(#g)"/><path d="M16 9v6M16 15l-8 7M16 15l8 7" stroke="url(#g)" stroke-width="2" fill="none"/><circle cx="16" cy="15" r="2.4" fill="#0D1117" stroke="url(#g)" stroke-width="2"/></svg><span>Enredo</span></a>
+  <nav><a href="/">Inicio</a><a href="/#instalar">Instalar</a><a class="cta" href="https://github.com/Santiago-off/enredo" target="_blank" rel="noopener">GitHub</a></nav>
+</header>
+
+<main class="wrap">
+  <div class="foro-head">
+    <h1>Foro de redes</h1>
+    <p>Sube tu red <strong>censurada</strong> y compárala con las de otra gente. Anónimo, sin cuentas y en tiempo real.</p>
+    <p class="foro-note">🔒 Solo se aceptan archivos <code>.enredo</code> exportados en <strong>modo compartir</strong> (sin IPs, MACs ni nombres). Los archivos privados o cifrados se rechazan automáticamente. No pidas ni subas datos de nadie.</p>
+  </div>
+
+  <!-- Subir -->
+  <div class="uploader" id="uploader">
+    <div class="drop" id="drop">
+      <p>Arrastra aquí tu archivo <b>.enredo</b> (modo compartir) o <b>haz clic para elegirlo</b>.</p>
+      <p id="fileName" style="color:var(--c);font-family:var(--mono);font-size:13px" hidden></p>
+    </div>
+    <div class="row">
+      <input type="text" id="title" placeholder="Título (opcional): «Mi casa», «Piso compartido»…" maxlength="120">
+      <button class="btn btn--primary" id="publishBtn" type="button" disabled>Publicar</button>
+    </div>
+    <div class="tswrap" id="tsWrap" hidden></div>
+    <p id="upMsg"></p>
+  </div>
+
+  <div id="feed" class="feed"></div>
+  <div id="thread" hidden></div>
+  <div class="empty" id="empty" hidden>Todavía no hay redes compartidas. ¡Sé el primero!</div>
+</main>
+
+<input type="file" id="fileInput" accept=".enredo" hidden>
+<div class="toasts" id="toasts"></div>
+
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+<script src="/enredo.js"></script>
+<script src="/foro.js"></script>
+</body>
+</html>

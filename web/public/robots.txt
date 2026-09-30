@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://enredo.pages.dev/sitemap.xml

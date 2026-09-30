@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0D1117">
+<title>Enredo · mira quién hay en tu red (analizador local y open source)</title>
+<meta name="description" content="Enredo es un analizador de red que se abre en tu navegador y funciona en tu propio equipo: descubre los dispositivos de tu red, su fabricante y puertos. Sin base de datos, 100% privado y open source.">
+<meta name="keywords" content="analizador de red, escanear red local, dispositivos conectados a mi wifi, quién está en mi red, network scanner, open source, privado">
+<link rel="canonical" href="https://enredo.pages.dev/">
+<meta name="author" content="Santiago Reguero Fernández">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="es_ES">
+<meta property="og:site_name" content="Enredo">
+<meta property="og:title" content="Enredo · mira quién hay en tu red">
+<meta property="og:description" content="Analizador de red local y open source. Descubre los dispositivos de tu red en tu navegador. Sin base de datos, 100% privado.">
+<meta property="og:url" content="https://enredo.pages.dev/">
+<meta property="og:image" content="https://enredo.pages.dev/og.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Enredo · mira quién hay en tu red">
+<meta name="twitter:description" content="Analizador de red local y open source. 100% privado, en tu navegador.">
+<meta name="twitter:image" content="https://enredo.pages.dev/og.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","@id":"https://enredo.pages.dev/#app","name":"Enredo","applicationCategory":"UtilitiesApplication","operatingSystem":"Windows, macOS, Linux (Node.js)","offers":{"@type":"Offer","price":"0","priceCurrency":"EUR"},"isAccessibleForFree":true,"description":"Analizador de red local que se abre en el navegador: descubre dispositivos, fabricante y puertos, sin base de datos y sin subir nada. Open source.","license":"https://opensource.org/licenses/MIT","inLanguage":"es","author":{"@type":"Person","@id":"https://santiago-off.github.io/#santiago","name":"Santiago Reguero Fernández","url":"https://santiago-off.github.io/","sameAs":["https://www.linkedin.com/in/santiago-reguero-fernandez","https://github.com/Santiago-off","https://www.instagram.com/santiagorfer","https://www.tiktok.com/@santiagorfoff","https://www.youtube.com/channel/UCduNhqsbJAnlUxpwcamI_6w"]}}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebSite","@id":"https://enredo.pages.dev/#website","name":"Enredo","url":"https://enredo.pages.dev/","publisher":{"@type":"Person","@id":"https://santiago-off.github.io/#santiago"},"inLanguage":"es"}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8B5CF6"/><stop offset="1" stop-color="#22D3EE"/></linearGradient></defs><circle cx="16" cy="6" r="3.2" fill="url(#g)"/><circle cx="6" cy="24" r="3.2" fill="url(#g)"/><circle cx="26" cy="24" r="3.2" fill="url(#g)"/><path d="M16 9v6M16 15l-8 7M16 15l8 7" stroke="url(#g)" stroke-width="2" fill="none"/><circle cx="16" cy="15" r="2.4" fill="#0D1117" stroke="url(#g)" stroke-width="2"/></svg><span>Enredo</span></a>
+  <nav>
+    <a href="#como">Cómo funciona</a>
+    <a href="#instalar">Instalar</a>
+    <a href="/foro.html">Foro</a>
+    <a class="cta" href="https://github.com/Santiago-off/enredo" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <h1>Mira <span class="g">quién hay</span> en tu red</h1>
+    <p>Enredo es un analizador de red que se abre en tu navegador y funciona <strong>en tu propio equipo</strong>. Descubre los dispositivos conectados, su fabricante y sus puertos. <strong>Sin base de datos, 100% privado y open source.</strong></p>
+    <div class="hero__btns">
+      <a class="btn btn--primary" href="#instalar">Descargar e instalar</a>
+      <a class="btn" href="/foro.html">Explorar el foro</a>
+    </div>
+    <p class="hero__note">🔒 Todo ocurre en tu ordenador. No subimos tu red a ningún sitio.</p>
+  </section>
+
+  <section class="block wrap">
+    <h2>Qué hace</h2>
+    <p class="lead">Un vistazo completo a tu red en segundos, sin instalar drivers ni pedir permisos de administrador.</p>
+    <div class="grid">
+      <div class="card"><h3>Descubre dispositivos</h3><p>Encuentra todo lo conectado: móviles, PCs, cámaras, IoT… con su IP, MAC y nombre.</p></div>
+      <div class="card"><h3>Fabricante y tipo</h3><p>Identifica la marca por la MAC y adivina el tipo de aparato (router, impresora, cámara…).</p></div>
+      <div class="card"><h3>Puertos abiertos</h3><p>Ve qué servicios expone cada equipo con un escaneo TCP, sin privilegios especiales.</p></div>
+      <div class="card"><h3>Exporta y compara</h3><p>Guarda tu red en un archivo <code>.enredo</code> e impórtalo luego, o compárala con la de un amigo.</p></div>
+      <div class="card"><h3>Privado de verdad</h3><p>El informe completo se puede <strong>cifrar con tu contraseña</strong>. Si se pierde, es ilegible sin la clave.</p></div>
+      <div class="card"><h3>Comunidad</h3><p>Comparte una versión <strong>censurada</strong> (sin datos privados) en el foro y compara redes con todos.</p></div>
+    </div>
+  </section>
+
+  <section class="block wrap" id="como">
+    <h2>Cómo funciona</h2>
+    <p class="lead">Enredo no es una web que escanea tu red (los navegadores no pueden). Es un pequeño programa que corre en tu equipo y te muestra los resultados en tu navegador.</p>
+    <div class="steps">
+      <div class="step"><div><h3>Arrancas Enredo</h3><p>Se abre solo en <code>http://127.0.0.1:4599</code>. La red la analiza tu propio ordenador.</p></div></div>
+      <div class="step"><div><h3>Escaneas tu red</h3><p>Ping-sweep + ARP + conexiones TCP descubren los equipos. Solo tu subred, y solo si tú lo pides.</p></div></div>
+      <div class="step"><div><h3>Exportas o compartes</h3><p>Guarda un <code>.enredo</code> <b>cifrado</b> para ti, o uno <b>censurado</b> (sin IPs/MACs/nombres) para el foro.</p></div></div>
+    </div>
+    <div class="callout"><div><strong>El formato .enredo:</strong> renombrar un archivo no protege nada. Lo que protege es <strong>quitar los datos privados</strong> (modo compartir) y el <strong>cifrado AES-256</strong> (modo privado). Por eso, aunque se te pierda un archivo, sin la app (y sin tu contraseña) no sirve de nada.</div></div>
+  </section>
+
+  <section class="block wrap" id="instalar">
+    <h2>Instalación</h2>
+    <p class="lead">Necesitas <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> 18 o superior. Nada más.</p>
+    <pre class="code"><span class="c"># 1) Descarga el código desde GitHub y entra en la carpeta</span>
+git clone https://github.com/Santiago-off/enredo
+cd enredo/app
+
+<span class="c"># 2) Arranca</span>
+npm start
+
+<span class="c"># 3) Se abre tu navegador en http://127.0.0.1:4599</span>
+<span class="c">#    Pulsa "Escanear mi red".</span></pre>
+    <div class="callout"><div><strong>Uso responsable:</strong> escanea solo <strong>tu propia red</strong> o redes para las que tengas permiso. Enredo está pensado para conocer y cuidar tu red, no la de otros.</div></div>
+  </section>
+
+  <section class="block wrap">
+    <div class="forocta">
+      <h2>El foro de redes</h2>
+      <p>Sube tu red <strong>censurada</strong> (sin ningún dato privado) y compárala con las de otra gente: fabricantes, tipos de aparatos, puertos… Anónimo y en tiempo real.</p>
+      <a class="btn btn--primary" href="/foro.html">Entrar al foro</a>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="mark">Enredo</div>
+  <p>Analizador de red local, gratuito y open source (MIT). No es una herramienta de ataque: úsalo solo en redes propias o autorizadas.</p>
+  <nav>
+    <a href="https://github.com/Santiago-off/enredo" target="_blank" rel="noopener">GitHub</a>
+    <a href="/foro.html">Foro</a>
+    <a href="/privacidad.html">Privacidad</a>
+    <a href="/terminos.html">Términos</a>
+    <a href="/aviso-legal.html">Aviso legal</a>
+  </nav>
+  <p class="author">Proyecto de <a href="https://santiago-off.github.io" rel="me noopener" target="_blank">Santiago Reguero</a> · <a href="https://www.linkedin.com/in/santiago-reguero-fernandez" rel="me noopener" target="_blank">LinkedIn</a> · <a href="https://github.com/Santiago-off" rel="me noopener" target="_blank">GitHub</a> · <a href="https://www.instagram.com/santiagorfer" rel="me noopener" target="_blank">Instagram</a> · <a href="https://www.tiktok.com/@santiagorfoff" rel="me noopener" target="_blank">TikTok</a> · <a href="https://www.youtube.com/channel/UCduNhqsbJAnlUxpwcamI_6w" rel="me noopener" target="_blank">YouTube</a></p>
+  <p class="author">© 2026 Santiago Reguero Fernández</p>
+</footer>
+</body>
+</html>

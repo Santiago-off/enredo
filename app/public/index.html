@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enredo · analizador de red local</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8B5CF6"/><stop offset="1" stop-color="#22D3EE"/></linearGradient></defs><circle cx="16" cy="6" r="3.2" fill="url(#g)"/><circle cx="6" cy="24" r="3.2" fill="url(#g)"/><circle cx="26" cy="24" r="3.2" fill="url(#g)"/><path d="M16 9v6M16 15l-8 7M16 15l8 7" stroke="url(#g)" stroke-width="2" fill="none"/><circle cx="16" cy="15" r="2.4" fill="#0D1117" stroke="url(#g)" stroke-width="2"/></svg>
+    <span>Enredo</span>
+  </div>
+  <div class="top__tabs">
+    <button class="tab is-active" data-view="scan" type="button">Escanear</button>
+    <button class="tab" data-view="compare" type="button">Comparar</button>
+  </div>
+  <a class="top__link" href="https://esfraude.pages.dev" target="_blank" rel="noopener" hidden>ayuda</a>
+</header>
+
+<main class="wrap">
+  <!-- VISTA ESCANEAR -->
+  <section id="view-scan">
+    <div class="netcard" id="netcard">
+      <div class="netcard__info">
+        <h1>Tu red</h1>
+        <p id="netSummary">Detectando tu red…</p>
+      </div>
+      <button class="btn btn--primary" id="scanBtn" type="button" disabled>Escanear mi red</button>
+    </div>
+    <p class="consent">🔒 Enredo solo escanea <strong>tu propia subred</strong> y todo ocurre en tu equipo. No se envía nada a Internet (salvo consultar tu IP pública, que puedes desactivar). Escanea solo redes tuyas o con permiso.</p>
+    <label class="checkline"><input type="checkbox" id="inclSelf" checked> Incluir mis datos (IP pública, Wi-Fi) en el informe privado</label>
+
+    <div class="progress" id="progress" hidden>
+      <div class="progress__bar"><span id="progressFill"></span></div>
+      <p id="progressTxt">Preparando…</p>
+    </div>
+
+    <div id="results" hidden>
+      <div class="toolbar">
+        <div class="stats" id="statsRow"></div>
+        <div class="actions">
+          <button class="btn" id="expCensor" type="button" title="Sin datos privados, para compartir/foro">Exportar para compartir</button>
+          <button class="btn" id="expPrivate" type="button" title="Cifrado con tu contraseña">Exportar privado (cifrado)</button>
+          <button class="btn btn--ghost" id="importBtn" type="button">Importar .enredo</button>
+        </div>
+      </div>
+      <div class="tablewrap">
+        <table class="devices">
+          <thead><tr><th>IP</th><th>Dispositivo</th><th>Fabricante</th><th>Tipo</th><th>MAC</th><th>Puertos abiertos</th></tr></thead>
+          <tbody id="devBody"></tbody>
+        </table>
+      </div>
+      <p class="badge-mode" id="modeBadge" hidden></p>
+    </div>
+  </section>
+
+  <!-- VISTA COMPARAR -->
+  <section id="view-compare" hidden>
+    <h1>Comparar redes</h1>
+    <p class="consent">Carga dos o más archivos <code>.enredo</code> (tuyos o de amigos) para compararlos. Los archivos cifrados piden su contraseña.</p>
+    <button class="btn btn--primary" id="addCompare" type="button">Añadir archivo .enredo</button>
+    <div class="cmpgrid" id="cmpGrid"></div>
+  </section>
+</main>
+
+<input type="file" id="fileInput" accept=".enredo" hidden>
+<input type="file" id="fileInputCmp" accept=".enredo" multiple hidden>
+
+<!-- Modal contraseña / prompts -->
+<div class="modal" id="modal" hidden>
+  <div class="modal__card">
+    <h3 id="modalTitle"></h3>
+    <p id="modalText"></p>
+    <input class="modal__in" id="modalIn" type="password" autocomplete="off">
+    <div class="modal__act"><button class="btn btn--ghost" id="modalCancel" type="button">Cancelar</button><button class="btn btn--primary" id="modalOk" type="button">Aceptar</button></div>
+  </div>
+</div>
+<div class="toasts" id="toasts"></div>
+
+<script src="/enredo.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

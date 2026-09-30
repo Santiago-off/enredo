@@ -1,0 +1,13 @@
+{
+  "name": "enredo",
+  "version": "1.0.0",
+  "description": "Enredo — analizador de red local que se abre en tu navegador. Sin base de datos, 100% privado.",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": { "enredo": "server.js" },
+  "scripts": {
+    "start": "node server.js",
+    "oui:update": "node scripts/update-oui.js"
+  },
+  "engines": { "node": ">=18" }
+}

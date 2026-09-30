@@ -1,0 +1,8 @@
+node_modules/
+.wrangler/
+.dev.vars
+*.local
+.DS_Store
+PROYECTO.md
+app/oui-full.json
+web/generate_og.py

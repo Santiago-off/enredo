@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "enredo",
+  "compatibility_date": "2026-09-30",
+  "pages_build_output_dir": "public",
+  "d1_databases": [
+    { "binding": "DB", "database_name": "enredo-foro", "database_id": "3c3d4e78-49a4-4863-8e48-c5d72446c98d" }
+  ],
+  "vars": {
+    "TURNSTILE_SITEKEY": "0x4AAAAAAFKYODNCcgfYmuLe"
+  }
+}
