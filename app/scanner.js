@@ -1,6 +1,9 @@
 /* Enredo — escáner de red local (Node, sin dependencias, sin privilegios de admin).
-   Técnicas: ping-sweep ICMP (comando del SO) + caché ARP + reverse DNS + TCP connect.
-   NO usa captura de paquetes (evita Npcap/admin). Escanea SOLO tu propia subred. */
+   Técnicas: ping-sweep ICMP (comando del SO) + caché ARP + reverse DNS + TCP connect +
+   netstat/tasklist para las conexiones entrantes/salientes de ESTE equipo.
+   NO usa captura de paquetes (evita Npcap/admin). Escanea SOLO tu propia subred.
+   Nota de privacidad: RTT/TTL/conexiones/IPs van en el informe PRIVADO; el export
+   'compartir' (censurado) los elimina siempre. */
 const os = require("os");
 const net = require("net");
 const dns = require("dns").promises;
@@ -52,9 +55,24 @@ async function detectNetwork() {
   return { interface: iface.name, ip: iface.address, mac: iface.mac, netmask: iface.netmask, base, gateway, dnsServers };
 }
 
+// Devuelve { ip, rttMs, ttl } si responde, o null.
 async function pingOne(ip) {
   const out = await sh(isWin ? `ping -n 1 -w 500 ${ip}` : `ping -c 1 -W 1 ${ip}`, 3000);
-  return /TTL=/i.test(out) ? ip : null;
+  if (!/TTL=/i.test(out)) return null;
+  // La media de las estadísticas es fiable en cualquier idioma; si no, el tiempo en línea
+  // (el ping en español abrevia la unidad, p.ej. "tiempo<1m", por eso no exigimos "ms").
+  const rtt = out.match(/(?:Media|Average|Promedio)\s*=\s*(\d+)\s*ms/i)
+    || out.match(/(?:tiempo|time)\s*[=<]\s*(\d+)/i);
+  const ttl = out.match(/TTL[=]\s*(\d+)/i);
+  return { ip, rttMs: rtt ? Number(rtt[1]) : null, ttl: ttl ? Number(ttl[1]) : null };
+}
+
+// TTL observado (sin descontar saltos; en la misma LAN suele ser el original).
+function osFromTtl(ttl) {
+  if (!ttl) return "";
+  if (ttl >= 129) return "Router/red";
+  if (ttl >= 65) return "Windows";
+  return "Linux/Unix/Apple";
 }
 
 async function arpTable() {
@@ -74,6 +92,27 @@ function isBcastMcast(ip, mac) {
   if (m === "ff:ff:ff:ff:ff:ff" || m === "00:00:00:00:00:00") return true;
   if (m.startsWith("01:00:5e") || m.startsWith("33:33") || m.startsWith("01:80:c2")) return true;
   return false;
+}
+
+function isPrivateIp(ip) {
+  if (!ip) return false;
+  if (ip === "::1" || ip.startsWith("127.") || ip.startsWith("fe80") || ip.startsWith("fc") || ip.startsWith("fd")) return true;
+  const p = ip.split(".").map(Number);
+  if (p.length !== 4 || p.some(isNaN)) return false;
+  if (p[0] === 10) return true;
+  if (p[0] === 192 && p[1] === 168) return true;
+  if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return true;
+  if (p[0] === 169 && p[1] === 254) return true;
+  return false;
+}
+function isNoRemote(ip) {
+  return !ip || ip === "0.0.0.0" || ip === "*" || ip === "::" || ip === "[::]";
+}
+function splitAddr(s) {
+  s = String(s || "").replace(/^\[/, "").replace(/\]:/, ":");
+  const i = s.lastIndexOf(":");
+  if (i < 0) return { ip: s, port: null };
+  return { ip: s.slice(0, i).replace(/[\[\]]/g, ""), port: Number(s.slice(i + 1)) || null };
 }
 
 function checkPort(ip, port, timeout = 700) {
@@ -115,18 +154,83 @@ function guessType(vendor, ports, isGateway) {
   return "Desconocido";
 }
 
+/* ---- Conexiones de ESTE equipo (netstat + tasklist). Datos privados. ---- */
+async function getConnections() {
+  const result = { listening: [], established: [], byRemote: [], outbound: 0, inbound: 0, topProcs: [] };
+  let pidName = {};
+  if (isWin) {
+    const tl = await sh("tasklist /fo csv /nh", 6000);
+    for (const line of tl.split(/\r?\n/)) { const m = line.match(/^"([^"]+)","(\d+)"/); if (m) pidName[m[2]] = m[1]; }
+  }
+  const raw = await sh(isWin ? "netstat -ano" : "netstat -tun", 6000);
+  const lines = raw.split(/\r?\n/);
+  const listenSet = new Set();            // puertos locales a la escucha
+  const byRemote = new Map();             // ip -> agregado
+  const procCount = new Map();
+
+  // 1ª pasada: puertos a la escucha
+  for (const line of lines) {
+    const m = line.match(/^\s*(TCP|UDP)\s+(\S+)\s+(\S+)(?:\s+(\w+))?\s+(\d+)\s*$/i);
+    if (!m) continue;
+    const state = (m[4] || "").toUpperCase();
+    if (state === "LISTENING" || (m[1].toUpperCase() === "UDP" && isNoRemote(splitAddr(m[3]).ip))) {
+      const { port } = splitAddr(m[2]);
+      if (port && !listenSet.has(m[1] + port)) {
+        listenSet.add(m[1] + port);
+        result.listening.push({ proto: m[1].toUpperCase(), port, proc: pidName[m[5]] || "" });
+      }
+    }
+  }
+  const listenPorts = new Set([...listenSet].map((s) => Number(s.replace(/^\D+/, ""))));
+
+  // 2ª pasada: conexiones establecidas
+  for (const line of lines) {
+    const m = line.match(/^\s*(TCP|UDP)\s+(\S+)\s+(\S+)(?:\s+(\w+))?\s+(\d+)\s*$/i);
+    if (!m) continue;
+    const proto = m[1].toUpperCase();
+    const state = (m[4] || "").toUpperCase();
+    if (state && state !== "ESTABLISHED") continue;        // solo activas
+    const L = splitAddr(m[2]), R = splitAddr(m[3]);
+    if (isNoRemote(R.ip) || R.ip === L.ip) continue;
+    if (R.ip === "127.0.0.1" || R.ip === "::1") continue;   // bucle local
+    const proc = pidName[m[5]] || "";
+    const dir = (L.port && listenPorts.has(L.port)) ? "in" : "out";
+    if (dir === "in") result.inbound++; else result.outbound++;
+    if (result.established.length < 500)
+      result.established.push({ proto, lport: L.port, raddr: R.ip, rport: R.port, proc, isLan: isPrivateIp(R.ip), dir });
+    if (proc) procCount.set(proc, (procCount.get(proc) || 0) + 1);
+
+    const e = byRemote.get(R.ip) || { ip: R.ip, count: 0, ports: new Set(), procs: new Set(), isLan: isPrivateIp(R.ip), dir };
+    e.count++; if (R.port) e.ports.add(R.port); if (proc) e.procs.add(proc);
+    if (e.dir !== dir) e.dir = "both";
+    byRemote.set(R.ip, e);
+  }
+
+  let remotes = [...byRemote.values()].map((e) => ({ ...e, ports: [...e.ports].slice(0, 8), procs: [...e.procs].slice(0, 6) }))
+    .sort((a, b) => b.count - a.count).slice(0, 60);
+  // reverse DNS solo para destinos de Internet (acotado)
+  const wan = remotes.filter((r) => !r.isLan).slice(0, 24);
+  await pool(wan, async (r) => { r.rdns = await reverseDns(r.ip); }, 12);
+  result.byRemote = remotes;
+  result.topProcs = [...procCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([proc, count]) => ({ proc, count }));
+  return result;
+}
+
 async function fullScan(opts = {}, onProgress = () => {}) {
   const started = Date.now();
   const network = await detectNetwork();
   if (!network) throw new Error("No se detectó una interfaz de red activa.");
   onProgress({ phase: "descubriendo", done: 0, total: 254 });
 
-  // 1) Ping sweep
+  // 1) Ping sweep (RTT + TTL)
   const hosts = Array.from({ length: 254 }, (_, i) => `${network.base}.${i + 1}`);
   let done = 0;
-  let alive = (await pool(hosts, async (ip) => {
+  const pres = await pool(hosts, async (ip) => {
     const r = await pingOne(ip); onProgress({ phase: "descubriendo", done: ++done, total: 254 }); return r;
-  }, 50)).filter(Boolean);
+  }, 50);
+  const pingInfo = {};
+  let alive = [];
+  for (const r of pres) if (r) { alive.push(r.ip); pingInfo[r.ip] = r; }
 
   // 2) ARP para MACs (el ping ya pobló la caché)
   const arp = await arpTable();
@@ -137,7 +241,10 @@ async function fullScan(opts = {}, onProgress = () => {}) {
   alive = alive.filter((ip) => !isBcastMcast(ip, arp[ip] || ""));
   alive.sort((a, b) => Number(a.split(".")[3]) - Number(b.split(".")[3]));
 
-  // 3) Enriquecer cada equipo
+  // 3) Conexiones del equipo (en paralelo con el enriquecido) — solo informe privado
+  const connPromise = (opts.includeSelf !== false) ? getConnections().catch(() => null) : Promise.resolve(null);
+
+  // 4) Enriquecer cada equipo
   let d2 = 0;
   const devices = await pool(alive, async (ip) => {
     const mac = arp[ip] || (ip === network.ip ? (network.mac || "") : "");
@@ -145,29 +252,35 @@ async function fullScan(opts = {}, onProgress = () => {}) {
     const [hostname, ports] = await Promise.all([reverseDns(ip), scanPorts(ip)]);
     onProgress({ phase: "analizando", done: ++d2, total: alive.length });
     const isGw = ip === network.gateway;
+    const pi = pingInfo[ip] || {};
     return {
       ip, mac, vendor,
       hostname: ip === network.ip ? (os.hostname() + " (este equipo)") : hostname,
       ports, portNames: ports.map((p) => PORT_NAMES[p] || String(p)),
       type: guessType(vendor, ports, isGw),
+      rttMs: pi.rttMs ?? null, ttl: pi.ttl ?? null, osGuess: osFromTtl(pi.ttl),
       isSelf: ip === network.ip, isGateway: isGw,
     };
   }, 12);
+
+  const connections = await connPromise;
 
   const result = {
     v: 1, app: "Enredo", scannedAt: new Date(started).toISOString(),
     network: { ...network, hostsScanned: 254 },
     devices,
   };
-
-  if (opts.includeSelf !== false) result.self = await getSelf(network);
+  if (connections) result.connections = connections;
+  if (opts.includeSelf !== false) result.self = await getSelf(network, connections);
   result.stats = buildStats(devices);
+  result.scanMs = Date.now() - started;
   onProgress({ phase: "hecho", done: alive.length, total: alive.length });
   return result;
 }
 
-async function getSelf(network) {
+async function getSelf(network, connections) {
   const self = { hostname: os.hostname(), platform: `${os.type()} ${os.release()}` };
+  if (connections) { self.outbound = connections.outbound; self.inbound = connections.inbound; self.listening = connections.listening.length; }
   try {
     const ctrl = AbortSignal.timeout ? AbortSignal.timeout(4000) : undefined;
     const r = await fetch("https://api.ipify.org?format=json", ctrl ? { signal: ctrl } : {});
@@ -186,14 +299,15 @@ async function getSelf(network) {
 }
 
 function buildStats(devices) {
-  const vendor = {}, ports = {}, type = {};
+  const vendor = {}, ports = {}, type = {}; let rttSum = 0, rttN = 0;
   for (const d of devices) {
     const v = d.vendor.replace(/\s*\(.*?\)$/, "");
     vendor[v] = (vendor[v] || 0) + 1;
     type[d.type] = (type[d.type] || 0) + 1;
     for (const p of d.ports) ports[p] = (ports[p] || 0) + 1;
+    if (typeof d.rttMs === "number") { rttSum += d.rttMs; rttN++; }
   }
-  return { vendor, ports, type };
+  return { vendor, ports, type, avgRttMs: rttN ? Math.round(rttSum / rttN) : null };
 }
 
-module.exports = { fullScan, detectNetwork };
+module.exports = { fullScan, detectNetwork, getConnections };

@@ -9,87 +9,239 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/styles.css">
 <style>
-  .adm{max-width:900px;margin:0 auto;padding:20px clamp(16px,4vw,28px) 60px}
-  .adm h1{font-size:22px}
-  .keyrow{display:flex;gap:10px;margin:14px 0;flex-wrap:wrap}
-  .keyrow input{flex:1;min-width:200px;padding:11px 13px;border:1px solid var(--line-2);border-radius:10px;background:var(--bg);color:var(--ink);font-family:var(--mono)}
-  .mgroup{margin-top:24px}
-  .mgroup h2{font-size:15px;color:var(--ink-mute);text-transform:uppercase;letter-spacing:.05em}
-  .mrow{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px;font-size:13.5px}
-  .mrow.hid{opacity:.55;border-style:dashed}
+  .adm{max-width:1060px;margin:0 auto;padding:18px clamp(16px,4vw,28px) 70px}
+  .adm h1{font-size:22px;margin:0}
+  .whoami{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:4px 0 2px}
+  .whoami .you{color:var(--ink-mute);font-size:13px}
+  .whoami .you b{color:var(--ok)}
+  .whoami a.out{color:var(--ink-mute);font-size:13px;text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:5px 11px}
+  .whoami a.out:hover{color:var(--ink);border-color:var(--line-2)}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;margin:16px 0 6px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .card b{display:block;font-size:26px;font-weight:800;line-height:1}
+  .card small{color:var(--ink-mute);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+  .card.alert{border-color:#5b2a2a} .card.alert b{color:#FCA5A5}
+
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0}
+  .bar input[type=search]{flex:1;min-width:180px;padding:10px 13px;border:1px solid var(--line-2);border-radius:10px;background:var(--bg);color:var(--ink);font-size:14px}
+  .bar .auto{display:flex;align-items:center;gap:7px;color:var(--ink-soft);font-size:13px;cursor:pointer;user-select:none}
+  .bar .live{display:inline-block;width:8px;height:8px;border-radius:99px;background:var(--line-2)}
+  .bar .live.on{background:var(--ok);box-shadow:0 0 0 3px rgba(63,185,80,.18);animation:pulse 1.6s infinite}
+  @keyframes pulse{50%{opacity:.4}}
+
+  .mgroup{margin-top:26px}
+  .mhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .mgroup h2{font-size:14px;color:var(--ink-mute);text-transform:uppercase;letter-spacing:.05em;margin:0}
+  .mgroup h2 .cnt{color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:99px;padding:1px 9px;font-size:12px;margin-left:6px}
+  .mgroup.urgent h2{color:#FCA5A5}
+  .bulk{display:flex;gap:7px;align-items:center;margin-left:auto;flex-wrap:wrap}
+  .mini{border:1px solid var(--line-2);background:var(--panel-2);color:var(--ink-soft);border-radius:8px;padding:5px 9px;font-size:12px;cursor:pointer}
+  .mini:hover{color:var(--ink)} .mini.d{color:#FCA5A5;border-color:#5b2a2a}
+  .mini input{width:46px;background:var(--bg);border:1px solid var(--line-2);border-radius:6px;color:var(--ink);padding:3px 5px;font-size:12px}
+
+  .mrow{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-bottom:8px;font-size:13.5px}
+  .mrow.hid{opacity:.6;border-style:dashed}
+  .mrow.rep{border-color:#5b2a2a;background:linear-gradient(0deg,rgba(248,81,73,.04),rgba(248,81,73,.04)),var(--panel)}
   .mrow .t{font-weight:700}
-  .mrow .meta{color:var(--ink-mute);font-size:12px;font-family:var(--mono);margin:3px 0 8px}
-  .mrow .body{color:var(--ink-soft);margin:2px 0 8px}
+  .mrow .meta{color:var(--ink-mute);font-size:12px;font-family:var(--mono);margin:3px 0 9px;word-break:break-word}
+  .mrow .body{color:var(--ink-soft);margin:2px 0 9px;white-space:pre-wrap;word-break:break-word}
   .mbtns{display:flex;gap:6px;flex-wrap:wrap}
   .mbtn{border:1px solid var(--line-2);background:var(--panel-2);color:var(--ink-soft);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer}
-  .mbtn:hover{color:var(--ink)} .mbtn.d{color:#FCA5A5;border-color:#5b2a2a} .mbtn.b{color:#FBBF24}
-  .flag{color:var(--warn)}
+  .mbtn:hover{color:var(--ink)} .mbtn.ok{color:#86EFAC;border-color:#2a5b33} .mbtn.d{color:#FCA5A5;border-color:#5b2a2a} .mbtn.b{color:#FBBF24}
+  .flag{color:#FCA5A5;font-weight:700}
+  .empty{color:var(--ink-mute);font-size:13px;padding:6px 2px}
+  .keyfb{display:none;gap:10px;margin:14px 0;flex-wrap:wrap}
+  .keyfb.show{display:flex}
+  .keyfb input{flex:1;min-width:200px;padding:11px 13px;border:1px solid var(--line-2);border-radius:10px;background:var(--bg);color:var(--ink);font-family:var(--mono)}
 </style>
 </head>
 <body>
 <header class="site"><a class="brand" href="/"><span>Enredo</span></a><nav><a href="/foro.html">Foro</a></nav></header>
 <div class="adm">
-  <h1>Panel de moderación</h1>
-  <p style="color:var(--ink-soft);font-size:14px">Solo tú. Pega tu clave de moderación y gestiona el foro: borrar, ocultar, banear o purgar a un autor.</p>
-  <div class="keyrow">
-    <input type="password" id="key" placeholder="Clave de moderación (MOD_KEY)">
-    <button class="btn btn--primary" id="load" type="button">Cargar</button>
+  <div class="whoami">
+    <h1>Moderación</h1>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="you" id="you"></span>
+      <a class="out" id="logout" href="/cdn-cgi/access/logout">Salir</a>
+    </div>
   </div>
-  <p id="msg" style="color:var(--ink-mute);font-size:13px"></p>
+  <p id="msg" style="color:var(--ink-mute);font-size:13px;margin:2px 0 0"></p>
 
-  <div class="mgroup"><h2>Publicaciones</h2><div id="posts"></div></div>
-  <div class="mgroup"><h2>Comentarios recientes</h2><div id="comments"></div></div>
-  <div class="mgroup"><h2>Baneados</h2><div id="bans"></div></div>
+  <!-- Respaldo por clave (solo si Access no autoriza) -->
+  <div class="keyfb" id="keyfb">
+    <input type="password" id="key" placeholder="Clave de moderación (respaldo MOD_KEY)">
+    <button class="btn btn--primary" id="keyload" type="button">Entrar</button>
+  </div>
+
+  <div class="cards" id="cards" hidden></div>
+
+  <div class="bar" id="bar" hidden>
+    <input type="search" id="q" placeholder="Filtrar por título, texto o autor…" autocomplete="off">
+    <label class="auto"><span class="live" id="live"></span><input type="checkbox" id="autob" checked> Auto-refrescar (10 s)</label>
+    <button class="mini" id="refresh" type="button">↻ Refrescar</button>
+  </div>
+
+  <div class="mgroup urgent" id="g-reported" hidden>
+    <div class="mhead">
+      <h2>⚑ Cola de reportes <span class="cnt" id="c-reported">0</span></h2>
+      <div class="bulk">
+        <span style="color:var(--ink-mute);font-size:12px">Umbral</span>
+        <input class="mini" type="number" id="minrep" value="4" min="1" style="width:52px">
+        <button class="mini" id="bulkHide" type="button">Ocultar ≥ umbral</button>
+        <button class="mini d" id="bulkDel" type="button">Borrar ≥ umbral</button>
+      </div>
+    </div>
+    <div id="reported"></div>
+  </div>
+
+  <div class="mgroup"><div class="mhead"><h2>Publicaciones <span class="cnt" id="c-posts">0</span></h2></div><div id="posts"></div></div>
+  <div class="mgroup"><div class="mhead"><h2>Comentarios <span class="cnt" id="c-comments">0</span></h2></div><div id="comments"></div></div>
+  <div class="mgroup"><div class="mhead"><h2>Baneados <span class="cnt" id="c-bans">0</span></h2></div><div id="bans"></div></div>
 </div>
 <div class="toasts" id="toasts"></div>
 <script>
 (() => {
   const $ = (s) => document.querySelector(s);
   const esc = (s) => String(s==null?"":s).replace(/[&<>"]/g,(c)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const fdate = (ts) => new Date(ts).toLocaleString("es-ES",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
+  function toast(m,ok=true){ const t=document.createElement("div"); t.className="toast toast--"+(ok?"ok":"err"); t.textContent=m; $("#toasts").appendChild(t); setTimeout(()=>t.remove(),2600); }
+
+  let last = null;          // última respuesta de list
+  let keyMode = false;      // usar MOD_KEY en vez de Access
+  let timer = null;
+  let busy = false;         // pausa el auto-refresco durante un confirm/acción
+
   const key = () => $("#key").value.trim();
   try { const k = localStorage.getItem("enredo.modkey"); if (k) $("#key").value = k; } catch {}
-  function toast(m,ok=true){ const t=document.createElement("div"); t.className="toast toast--"+(ok?"ok":"err"); t.textContent=m; $("#toasts").appendChild(t); setTimeout(()=>t.remove(),2600); }
-  const fdate = (ts) => new Date(ts).toLocaleString("es-ES",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
+
   async function mod(body){
-    const r = await fetch("/api/mod",{method:"POST",headers:{"content-type":"application/json","X-Mod-Key":key()},body:JSON.stringify(body)});
-    const d = await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||("Error "+r.status)); return d;
+    const headers = { "content-type":"application/json" };
+    if (keyMode) headers["X-Mod-Key"] = key();
+    const r = await fetch("/api/mod",{ method:"POST", headers, body:JSON.stringify(body) });
+    const d = await r.json().catch(()=>({}));
+    if(!r.ok){ const e = new Error(d.error||("Error "+r.status)); e.status=r.status; throw e; }
+    return d;
   }
-  async function load(){
-    try{ localStorage.setItem("enredo.modkey", key()); }catch{}
-    $("#msg").textContent="Cargando…";
+
+  function startAuto(){ stopAuto(); if($("#autob").checked){ $("#live").classList.add("on"); timer=setInterval(()=>{ if(!busy&&!document.hidden) load(true); },10000); } else $("#live").classList.remove("on"); }
+  function stopAuto(){ if(timer){ clearInterval(timer); timer=null; } }
+
+  async function load(silent){
+    if(!silent) $("#msg").textContent="Cargando…";
     try{
       const d = await mod({action:"list"});
-      $("#msg").textContent = `${d.posts.length} publicaciones · ${d.comments.length} comentarios · ${d.bans.length} baneados`;
-      $("#posts").innerHTML = d.posts.map(p=>`<div class="mrow ${p.hidden?"hid":""}">
-        <div class="t">${esc(p.title)} ${p.reports?`<span class="flag">⚑ ${p.reports} reportes</span>`:""} ${p.hidden?"· (oculto)":""}</div>
-        <div class="meta">${p.id} · ${fdate(p.created)} · ${p.device_count} equipos · ${p.comments} coment. · autor ${p.iph||"?"}</div>
-        <div class="mbtns">
-          <button class="mbtn" data-a="hide" data-id="${p.id}" data-h="${p.hidden?0:1}">${p.hidden?"Mostrar":"Ocultar"}</button>
-          <button class="mbtn d" data-a="delPost" data-id="${p.id}">Borrar</button>
-          <button class="mbtn b" data-a="ban" data-post="${p.id}">Banear autor</button>
-          <button class="mbtn d" data-a="purgeIp" data-post="${p.id}">Purgar autor</button>
-        </div></div>`).join("") || "<p style='color:var(--ink-mute)'>Sin publicaciones.</p>";
-      $("#comments").innerHTML = d.comments.map(c=>`<div class="mrow">
-        <div class="body">${esc(c.body)}</div>
-        <div class="meta">${fdate(c.created)} · en ${c.post_id} · autor ${c.iph||"?"}</div>
-        <div class="mbtns"><button class="mbtn d" data-a="delComment" data-id="${c.id}">Borrar</button><button class="mbtn b" data-a="ban" data-comment="${c.id}">Banear autor</button></div></div>`).join("") || "<p style='color:var(--ink-mute)'>Sin comentarios.</p>";
-      $("#bans").innerHTML = d.bans.map(b=>`<div class="mrow"><div class="meta">${b.iph} · ${fdate(b.created)} · ${esc(b.reason||"")}</div><div class="mbtns"><button class="mbtn" data-a="unban" data-iph="${b.iph}">Quitar ban</button></div></div>`).join("") || "<p style='color:var(--ink-mute)'>Nadie baneado.</p>";
-    }catch(e){ $("#msg").textContent=""; toast(e.message,false); }
+      last = d;
+      if(keyMode){ try{ localStorage.setItem("enredo.modkey", key()); }catch{} }
+      $("#keyfb").classList.remove("show");
+      $("#you").innerHTML = `Conectado como <b>${esc(d.viewer||"?")}</b>${d.via==="key"?" (clave)":""}`;
+      $("#cards").hidden=false; $("#bar").hidden=false;
+      renderCards(d.counts);
+      render();
+      $("#msg").textContent="";
+    }catch(e){
+      if(e.status===403){
+        // Access no autoriza (o clave incorrecta): ofrecer respaldo por clave
+        keyMode = true;
+        $("#keyfb").classList.add("show");
+        $("#msg").innerHTML = "Access no te autorizó en este navegador. Entra con tu clave de moderación de respaldo, o abre el enlace de Access y completa el OTP.";
+        $("#cards").hidden=true; $("#bar").hidden=true;
+        stopAuto();
+      } else { $("#msg").textContent=""; toast(e.message,false); }
+    }
   }
+
+  function renderCards(c){
+    c = c||{};
+    $("#cards").innerHTML =
+      `<div class="card${c.reported?" alert":""}"><b>${c.reported||0}</b><small>Reportados</small></div>`+
+      `<div class="card"><b>${c.posts||0}</b><small>Publicaciones</small></div>`+
+      `<div class="card"><b>${c.hidden||0}</b><small>Ocultas</small></div>`+
+      `<div class="card"><b>${c.comments||0}</b><small>Comentarios</small></div>`+
+      `<div class="card"><b>${c.posts24h||0}</b><small>Posts 24 h</small></div>`+
+      `<div class="card"><b>${c.comments24h||0}</b><small>Coment. 24 h</small></div>`+
+      `<div class="card"><b>${c.bans||0}</b><small>Baneados</small></div>`;
+  }
+
+  const postRow = (p, reported) => `<div class="mrow ${reported?"rep":""} ${p.hidden?"hid":""}" data-txt="${esc((p.title||"")+" "+(p.iph||""))}">
+    <div class="t">${esc(p.title||"(sin título)")} ${p.reports?`<span class="flag">⚑ ${p.reports}</span>`:""} ${p.hidden?"· <span style='color:var(--ink-mute)'>oculto</span>":""}</div>
+    <div class="meta">${p.id} · ${fdate(p.created)} · ${p.device_count} equipos · ${p.comments} coment. · autor ${p.iph||"?"}</div>
+    <div class="mbtns">
+      ${reported?`<button class="mbtn ok" data-a="approve" data-id="${p.id}">Aprobar</button>`:""}
+      <button class="mbtn" data-a="hide" data-id="${p.id}" data-h="${p.hidden?0:1}">${p.hidden?"Mostrar":"Ocultar"}</button>
+      <button class="mbtn d" data-a="delPost" data-id="${p.id}">Borrar</button>
+      <button class="mbtn b" data-a="ban" data-post="${p.id}">Banear autor</button>
+      <button class="mbtn d" data-a="purgeIp" data-post="${p.id}">Purgar autor</button>
+    </div></div>`;
+
+  function render(){
+    if(!last) return;
+    const d = last;
+    $("#c-reported").textContent = (d.reported||[]).length;
+    $("#c-posts").textContent = (d.posts||[]).length;
+    $("#c-comments").textContent = (d.comments||[]).length;
+    $("#c-bans").textContent = (d.bans||[]).length;
+
+    $("#g-reported").hidden = !(d.reported && d.reported.length);
+    $("#reported").innerHTML = (d.reported||[]).map(p=>postRow(p,true)).join("") || "";
+
+    $("#posts").innerHTML = (d.posts||[]).map(p=>postRow(p,false)).join("") || "<p class='empty'>Sin publicaciones.</p>";
+
+    $("#comments").innerHTML = (d.comments||[]).map(c=>`<div class="mrow" data-txt="${esc((c.body||"")+" "+(c.post_title||"")+" "+(c.iph||""))}">
+      <div class="body">${esc(c.body)}</div>
+      <div class="meta">${fdate(c.created)} · en “${esc(c.post_title||c.post_id)}” · autor ${c.iph||"?"}</div>
+      <div class="mbtns"><button class="mbtn d" data-a="delComment" data-id="${c.id}">Borrar</button><button class="mbtn b" data-a="ban" data-comment="${c.id}">Banear autor</button></div></div>`).join("") || "<p class='empty'>Sin comentarios.</p>";
+
+    $("#bans").innerHTML = (d.bans||[]).map(b=>`<div class="mrow"><div class="meta">${b.iph} · ${fdate(b.created)} · ${esc(b.reason||"")}</div><div class="mbtns"><button class="mbtn" data-a="unban" data-iph="${b.iph}">Quitar ban</button></div></div>`).join("") || "<p class='empty'>Nadie baneado.</p>";
+
+    applyFilter();
+  }
+
+  function applyFilter(){
+    const q = $("#q").value.trim().toLowerCase();
+    document.querySelectorAll(".mrow[data-txt]").forEach(el=>{
+      el.style.display = (!q || el.dataset.txt.toLowerCase().includes(q)) ? "" : "none";
+    });
+  }
+
+  async function act(body, confirmMsg){
+    if(confirmMsg && !confirm(confirmMsg)) return;
+    busy = true;
+    try{ await mod(body); toast("Hecho"); await load(true); }
+    catch(e){ toast(e.message,false); }
+    finally{ busy = false; }
+  }
+
   document.addEventListener("click", async (e)=>{
     const btn = e.target.closest(".mbtn"); if(!btn) return;
-    const a = btn.dataset.a;
-    const body = {action:a};
+    const a = btn.dataset.a; const body = { action:a };
     if(btn.dataset.id) body.id = btn.dataset.id;
     if(btn.dataset.post) body.postId = btn.dataset.post;
     if(btn.dataset.comment) body.commentId = btn.dataset.comment;
     if(btn.dataset.iph) body.iph = btn.dataset.iph;
     if(a==="hide") body.hidden = btn.dataset.h==="1";
-    if((a==="delPost"||a==="purgeIp") && !confirm("¿Seguro?")) return;
-    try{ await mod(body); toast("Hecho"); load(); }catch(err){ toast(err.message,false); }
+    const needConf = (a==="delPost"||a==="purgeIp") ? "¿Seguro? Esta acción no se puede deshacer." : "";
+    act(body, needConf);
   });
-  $("#load").addEventListener("click", load);
-  $("#key").addEventListener("keydown",(e)=>{ if(e.key==="Enter") load(); });
+
+  $("#bulkHide").addEventListener("click", ()=>{ const min=Math.max(1,+$("#minrep").value||4); act({action:"hideReported",min},`¿Ocultar todas las publicaciones con ${min}+ reportes?`); });
+  $("#bulkDel").addEventListener("click", async ()=>{
+    const min=Math.max(1,+$("#minrep").value||4);
+    const targets=(last&&last.reported||[]).filter(p=>p.reports>=min);
+    if(!targets.length) return toast("No hay publicaciones con ese umbral", false);
+    if(!confirm(`¿Borrar definitivamente ${targets.length} publicación(es) con ${min}+ reportes? No se puede deshacer.`)) return;
+    busy=true;
+    try{ for(const p of targets){ await mod({action:"delPost",id:p.id}); } toast(`Borradas ${targets.length}`); await load(true); }
+    catch(e){ toast(e.message,false); } finally{ busy=false; }
+  });
+
+  $("#q").addEventListener("input", applyFilter);
+  $("#refresh").addEventListener("click", ()=>load(false));
+  $("#autob").addEventListener("change", startAuto);
+  $("#keyload").addEventListener("click", ()=>{ keyMode=true; load(false); });
+  $("#key").addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ keyMode=true; load(false); } });
+
+  load(false).then(startAuto);
 })();
 </script>
 </body>

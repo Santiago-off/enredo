@@ -1,6 +1,7 @@
 // Enredo — API del foro (Cloudflare Pages Functions + D1)
 // Solo acepta archivos .enredo CENSURADOS (ENREDO1C). Rechaza privados/cifrados y
 // cualquier archivo con datos privados. Anti-spam por IP hasheada (anónima) + Turnstile.
+// Moderación protegida por Cloudflare Access (OTP) — JWT verificado aquí; MOD_KEY como respaldo.
 
 const MAX_FILE = 300 * 1024;     // 300 KB
 const MAX_TITLE = 120;
@@ -31,6 +32,67 @@ async function verifyTurnstile(token, ip, env) {
   } catch { return false; }
 }
 
+/* ---- Cloudflare Access: verificación del JWT (OTP) ---- */
+let JWKS_CACHE = { keys: null, exp: 0 };
+function b64urlToU8(s) {
+  s = String(s || "").replace(/-/g, "+").replace(/_/g, "/");
+  while (s.length % 4) s += "=";
+  const bin = atob(s); const u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return u;
+}
+const b64urlToJson = (s) => JSON.parse(new TextDecoder().decode(b64urlToU8(s)));
+
+async function getJwks(teamDomain) {
+  const now = Date.now();
+  if (JWKS_CACHE.keys && JWKS_CACHE.exp > now) return JWKS_CACHE.keys;
+  const r = await fetch(`https://${teamDomain}/cdn-cgi/access/certs`);
+  const j = await r.json().catch(() => ({}));
+  JWKS_CACHE = { keys: j.keys || [], exp: now + 3600_000 };
+  return JWKS_CACHE.keys;
+}
+
+// Devuelve el email autenticado si el JWT de Access es válido; si no, null.
+async function accessIdentity(request, env) {
+  const teamDomain = env.ACCESS_TEAM_DOMAIN, aud = env.ACCESS_AUD;
+  if (!teamDomain || !aud) return null;
+  let token = request.headers.get("Cf-Access-Jwt-Assertion");
+  if (!token) {
+    const m = (request.headers.get("Cookie") || "").match(/CF_Authorization=([^;]+)/);
+    if (m) token = m[1];
+  }
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  let header, payload;
+  try { header = b64urlToJson(parts[0]); payload = b64urlToJson(parts[1]); } catch { return null; }
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.exp && payload.exp < now) return null;
+  if (payload.iss && payload.iss !== `https://${teamDomain}`) return null;
+  const auds = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
+  if (!auds.includes(aud)) return null;
+  try {
+    const keys = await getJwks(teamDomain);
+    const jwk = keys.find((k) => k.kid === header.kid);
+    if (!jwk) return null;
+    const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+    const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, b64urlToU8(parts[2]), new TextEncoder().encode(parts[0] + "." + parts[1]));
+    if (!ok) return null;
+  } catch { return null; }
+  return String(payload.email || "autenticado");
+}
+
+// Autorizado para moderar si: JWT de Access válido (y, si se fija ACCESS_EMAIL, coincide) O MOD_KEY correcta.
+async function modAuth(request, env) {
+  const email = await accessIdentity(request, env);
+  if (email) {
+    const allow = (env.ACCESS_EMAIL || "").toLowerCase();
+    if (!allow || email.toLowerCase() === allow) return { via: "access", who: email };
+  }
+  if (env.MOD_KEY && request.headers.get("X-Mod-Key") === env.MOD_KEY) return { via: "key", who: "clave" };
+  return null;
+}
+
 async function gunzipB64(b64) {
   const bin = atob(b64); const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -45,23 +107,24 @@ async function parseCensored(text) {
   let data;
   try { data = JSON.parse(await gunzipB64(text.slice(9))); }
   catch { throw new Error("El archivo .enredo está dañado o no es válido."); }
-  if (data.self || data.network) throw new Error("El archivo contiene datos privados. Exporta en modo 'compartir' desde Enredo.");
+  if (data.self || data.network || data.connections) throw new Error("El archivo contiene datos privados. Exporta en modo 'compartir' desde Enredo.");
   if (!Array.isArray(data.devices)) throw new Error("Formato .enredo no reconocido.");
   if (data.devices.length > 4096) throw new Error("Demasiados equipos.");
   for (const d of data.devices) {
-    if (d.ip || d.mac || d.hostname || d.portNames) throw new Error("El archivo contiene datos privados (IP/MAC/nombre). Usa el modo 'compartir'.");
+    if (d.ip || d.mac || d.hostname || d.portNames || d.rttMs || d.ttl) throw new Error("El archivo contiene datos privados (IP/MAC/nombre). Usa el modo 'compartir'.");
   }
   return data;
 }
 
 function summarize(data) {
-  const vendor = {}, ports = {};
+  const vendor = {}, ports = {}, type = {};
   for (const d of data.devices) {
     const v = d.vendor || "Desconocido"; vendor[v] = (vendor[v] || 0) + 1;
+    const t = d.type || "Desconocido"; type[t] = (type[t] || 0) + 1;
     for (const p of d.ports || []) ports[p] = (ports[p] || 0) + 1;
   }
   const top = (o, n) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => ({ k, v }));
-  return { deviceCount: data.devices.length, vendors: top(vendor, 5), ports: top(ports, 5) };
+  return { deviceCount: data.devices.length, vendors: top(vendor, 5), ports: top(ports, 5), types: top(type, 6) };
 }
 
 async function rateOk(env, iph, action, max, windowSec) {
@@ -166,17 +229,33 @@ export async function onRequest(context) {
       return json({ ok: true });
     }
 
-    // ---- Moderación (solo con la clave del dueño) ----
+    // ---- Moderación (Cloudflare Access/OTP, o MOD_KEY de respaldo) ----
     if (route === "mod" && method === "POST") {
-      if (!env.MOD_KEY || request.headers.get("X-Mod-Key") !== env.MOD_KEY) return json({ error: "No autorizado" }, 403);
+      const auth = await modAuth(request, env);
+      if (!auth) return json({ error: "No autorizado" }, 403);
       const b = await request.json().catch(() => ({}));
       const a = b.action;
+
       if (a === "list") {
-        const posts = (await env.DB.prepare("SELECT id, created, title, device_count, comments, reports, hidden, iph FROM posts ORDER BY created DESC LIMIT 100").all()).results || [];
-        const comments = (await env.DB.prepare("SELECT id, post_id, created, body, iph FROM comments ORDER BY created DESC LIMIT 150").all()).results || [];
+        const n = async (sql, ...bind) => (await env.DB.prepare(sql).bind(...bind).first()).n;
+        const dayAgo = Date.now() - 86400000;
+        const counts = {
+          posts: await n("SELECT COUNT(*) n FROM posts"),
+          hidden: await n("SELECT COUNT(*) n FROM posts WHERE hidden=1"),
+          reported: await n("SELECT COUNT(*) n FROM posts WHERE reports>0"),
+          comments: await n("SELECT COUNT(*) n FROM comments"),
+          bans: await n("SELECT COUNT(*) n FROM bans"),
+          posts24h: await n("SELECT COUNT(*) n FROM posts WHERE created>?", dayAgo),
+          comments24h: await n("SELECT COUNT(*) n FROM comments WHERE created>?", dayAgo),
+        };
+        const cols = "id, created, title, device_count, comments, reports, hidden, iph";
+        const reported = (await env.DB.prepare(`SELECT ${cols} FROM posts WHERE reports>0 ORDER BY reports DESC, created DESC LIMIT 100`).all()).results || [];
+        const posts = (await env.DB.prepare(`SELECT ${cols} FROM posts ORDER BY created DESC LIMIT 80`).all()).results || [];
+        const comments = (await env.DB.prepare("SELECT c.id, c.post_id, c.created, c.body, c.iph, p.title AS post_title FROM comments c LEFT JOIN posts p ON p.id=c.post_id ORDER BY c.created DESC LIMIT 120").all()).results || [];
         const bans = (await env.DB.prepare("SELECT iph, created, reason FROM bans ORDER BY created DESC LIMIT 100").all()).results || [];
-        return json({ posts, comments, bans });
+        return json({ viewer: auth.who, via: auth.via, counts, reported, posts, comments, bans });
       }
+
       if (a === "delPost") {
         await env.DB.prepare("DELETE FROM comments WHERE post_id=?").bind(b.id).run();
         await env.DB.prepare("DELETE FROM reports WHERE post_id=?").bind(b.id).run();
@@ -184,6 +263,20 @@ export async function onRequest(context) {
         return json({ ok: true });
       }
       if (a === "hide") { await env.DB.prepare("UPDATE posts SET hidden=? WHERE id=?").bind(b.hidden ? 1 : 0, b.id).run(); return json({ ok: true }); }
+
+      // Aprobar: descarta reportes y vuelve a mostrar (para falsos positivos / auto-ocultados)
+      if (a === "approve") {
+        await env.DB.prepare("DELETE FROM reports WHERE post_id=?").bind(b.id).run();
+        await env.DB.prepare("UPDATE posts SET hidden=0, reports=0 WHERE id=?").bind(b.id).run();
+        return json({ ok: true });
+      }
+      // Ocultar en lote todo lo que supere N reportes
+      if (a === "hideReported") {
+        const min = Math.max(1, Number(b.min || 4));
+        const r = await env.DB.prepare("UPDATE posts SET hidden=1 WHERE reports>=? AND hidden=0").bind(min).run();
+        return json({ ok: true, changed: (r.meta && r.meta.changes) || 0 });
+      }
+
       if (a === "delComment") {
         const c = await env.DB.prepare("SELECT post_id FROM comments WHERE id=?").bind(b.id).first();
         await env.DB.prepare("DELETE FROM comments WHERE id=?").bind(b.id).run();

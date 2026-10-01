@@ -78,5 +78,42 @@ table.devices{width:100%;border-collapse:collapse;font-size:13.5px}
 .toasts{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:8px;align-items:center}
 .toast{background:var(--panel-2);border:1px solid var(--line-2);border-radius:10px;padding:10px 16px;font-size:13.5px;font-weight:600}
 .toast--ok{border-color:rgba(63,185,80,.5)} .toast--err{border-color:rgba(248,81,73,.5)}
+.lat{font-family:var(--mono);font-size:12px;color:var(--ink-soft);white-space:nowrap}
+.lat small{color:var(--ink-mute)}
+
+/* conmutador de vistas */
+.viewswitch{display:flex;gap:6px;margin:4px 0 14px}
+.vbtn{background:var(--panel);border:1px solid var(--line);color:var(--ink-mute);font-size:13.5px;font-weight:600;padding:8px 14px;border-radius:10px;cursor:pointer}
+.vbtn:hover{color:var(--ink)}
+.vbtn.is-active{color:var(--ink);background:var(--panel-2);border-color:var(--line-2)}
+.panel{animation:fade .2s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+
+/* grafo */
+.graphstage{position:relative;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+  background:radial-gradient(600px 340px at 50% 42%,rgba(139,92,246,.07),transparent 70%),#0A0E14}
+.graphwrap{height:min(68vh,520px);width:100%}
+.graphlegend{position:absolute;top:10px;left:10px;display:flex;flex-wrap:wrap;gap:4px 10px;max-width:72%;pointer-events:none}
+.graphlegend .lg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-soft);background:rgba(10,14,20,.55);border:1px solid var(--line);border-radius:7px;padding:2px 7px}
+.graphlegend .lg i{width:9px;height:9px;border-radius:99px;display:inline-block}
+.graphreset{position:absolute;top:10px;right:10px;padding:7px 12px;font-size:12.5px}
+.graphhint{position:absolute;bottom:8px;left:12px;margin:0;color:var(--ink-mute);font-size:11.5px;pointer-events:none}
+.nodedetail{margin-top:12px;background:var(--panel);border:1px solid var(--line-2);border-radius:12px;padding:14px 16px}
+.nodedetail h3{margin:0 0 8px;font-size:15px;font-family:var(--mono);color:var(--c);word-break:break-all}
+.nodedetail .dl{display:flex;justify-content:space-between;gap:14px;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px}
+.nodedetail .dl:last-child{border-bottom:0}
+.nodedetail .dl span{color:var(--ink-mute)} .nodedetail .dl b{color:var(--ink-soft);text-align:right;word-break:break-word}
+
+/* conexiones */
+.connstats{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 10px}
+.connh{color:var(--ink-mute);font-size:12px;text-transform:uppercase;letter-spacing:.05em;margin:18px 0 8px}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:12.5px;font-family:var(--mono);color:var(--ink-soft)}
+.chip b{color:var(--c)} .chip small{color:var(--ink-mute)}
+
 [hidden]{display:none!important}
-@media(max-width:620px){.netcard{flex-direction:column;align-items:stretch}.devices th:nth-child(5),.devices td:nth-child(5){display:none}}
+@media(max-width:620px){
+  .netcard{flex-direction:column;align-items:stretch}
+  .devices th:nth-child(5),.devices td:nth-child(5),.devices th:nth-child(6),.devices td:nth-child(6){display:none}
+  .graphwrap{height:62vh}
+}

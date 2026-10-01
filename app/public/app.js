@@ -3,6 +3,7 @@
   "use strict";
   const $ = (s) => document.querySelector(s);
   let current = null; // último escaneo/importación mostrado
+  let graph = null;   // instancia del grafo
 
   /* ---- utilidades ---- */
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -74,16 +75,90 @@
     const censored = data.mode === "censored" || imported && !devs.some((d) => d.ip);
     $("#devBody").innerHTML = devs.map((d) => {
       if (!d.ip) { // censurado: no hay IP/MAC/host
-        return `<tr><td class="ip">#${d.n}</td><td class="host">—</td><td>${esc(d.vendor)}</td><td>${esc(d.type)}</td><td class="mac">oculto</td><td>${renderPorts(d.ports)}</td></tr>`;
+        return `<tr><td class="ip">#${d.n}</td><td class="host">—</td><td>${esc(d.vendor)}</td><td>${esc(d.type)}</td><td class="mac">oculto</td><td class="lat">—</td><td>${renderPorts(d.ports)}</td></tr>`;
       }
       const tags = (d.isSelf ? '<span class="pill pill--self">este equipo</span>' : "") + (d.isGateway ? '<span class="pill pill--gw">router</span>' : "");
-      return `<tr><td class="ip">${esc(d.ip)}</td><td class="host">${esc(d.hostname || "—")} ${tags}</td><td>${esc(d.vendor)}</td><td>${esc(d.type)}</td><td class="mac">${esc(d.mac || "—")}</td><td>${renderPorts(d.ports, d.portNames)}</td></tr>`;
+      const lat = (d.rttMs != null ? `${d.rttMs} ms` : "—") + (d.osGuess ? `<small> · ${esc(d.osGuess)}</small>` : "");
+      return `<tr><td class="ip">${esc(d.ip)}</td><td class="host">${esc(d.hostname || "—")} ${tags}</td><td>${esc(d.vendor)}</td><td>${esc(d.type)}</td><td class="mac">${esc(d.mac || "—")}</td><td class="lat">${lat}</td><td>${renderPorts(d.ports, d.portNames)}</td></tr>`;
     }).join("");
 
     const badge = $("#modeBadge"); badge.hidden = false;
     badge.innerHTML = censored
       ? "📄 Archivo <b>compartido/censurado</b>: sin IPs, MACs ni nombres. Ideal para el foro."
       : imported ? "📂 Archivo <b>privado importado</b>." : "✅ Escaneo de tu red. Exporta <b>censurado</b> para compartir o <b>cifrado</b> para guardar.";
+
+    // Mapa + conexiones
+    const hasConns = !!(data.connections && (data.connections.byRemote || []).length);
+    $("#connsTabBtn").hidden = !hasConns;
+    buildLegend();
+    mountGraph(data);
+    renderConns(data);
+    if ($("#panel-conns").hidden === false && !hasConns) switchPanel("map");
+  }
+
+  /* ---- grafo ---- */
+  function mountGraph(data) {
+    if (!window.EnredoGraph) return;
+    const wrap = $("#graphwrap");
+    $("#nodeDetail").hidden = true;
+    if (graph) { graph.setData(data); }
+    else { graph = window.EnredoGraph.mount(wrap, data, { onSelect: showNodeDetail }); }
+  }
+  function buildLegend() {
+    const C = window.EnredoGraph && window.EnredoGraph.COLORS, L = window.EnredoGraph && window.EnredoGraph.LABELS;
+    if (!C) return;
+    const order = ["router", "self", "pc", "phone", "printer", "camera", "iot", "server", "web", "wan"];
+    $("#graphLegend").innerHTML = order.map((k) => `<span class="lg"><i style="background:${C[k]}"></i>${esc(L[k])}</span>`).join("");
+  }
+  function showNodeDetail(meta, node) {
+    const box = $("#nodeDetail");
+    if (!meta && !node) { box.hidden = true; return; }
+    const m = meta || {}, rows = [];
+    const title = (node && node.label) || m.ip || "Nodo";
+    rows.push(`<h3>${esc(title)}</h3>`);
+    const add = (k, v) => { if (v !== undefined && v !== null && v !== "") rows.push(`<div class="dl"><span>${k}</span><b>${esc(v)}</b></div>`); };
+    add("Tipo", m.type);
+    add("IP", m.ip);
+    add("MAC", m.mac);
+    add("Fabricante", m.vendor);
+    if (typeof m.rttMs === "number") add("Latencia", m.rttMs + " ms");
+    add("SO estimado", m.osGuess);
+    if (m.ports && m.ports.length) add("Puertos", (m.portNames && m.portNames.length ? m.portNames : m.ports).join(", "));
+    if (m.dir) add("Dirección", m.dir === "in" ? "Entrante" : m.dir === "both" ? "Entrante + saliente" : "Saliente");
+    if (m.count) add("Conexiones", m.count);
+    if (m.procs && m.procs.length) add("Aplicación", m.procs.join(", "));
+    if (m.rdns) add("DNS inverso", m.rdns);
+    box.innerHTML = rows.join("");
+    box.hidden = false;
+  }
+
+  /* ---- conexiones del PC ---- */
+  function renderConns(data) {
+    const c = data.connections;
+    const body = $("#connsBody");
+    if (!c) { body.innerHTML = `<p class="consent">Las conexiones del equipo solo aparecen en un escaneo en vivo (o en un archivo privado tuyo), nunca en un archivo compartido.</p>`; return; }
+    const self = data.self || {};
+    const wan = (c.byRemote || []).filter((r) => !r.isLan);
+    const lan = (c.byRemote || []).filter((r) => r.isLan);
+    const remoteRow = (r) => `<tr><td class="ip">${esc(r.rdns || r.ip)}</td><td class="mac">${esc(r.ip)}</td><td>${r.dir === "in" ? "⬇ entrante" : r.dir === "both" ? "⬍ ambas" : "⬆ saliente"}</td><td>${r.count}</td><td>${esc((r.procs || []).join(", "))}</td></tr>`;
+    body.innerHTML =
+      `<div class="connstats">
+        <div class="stat"><b>${self.outbound ?? c.outbound ?? 0}</b><small>salientes</small></div>
+        <div class="stat"><b>${self.inbound ?? c.inbound ?? 0}</b><small>entrantes</small></div>
+        <div class="stat"><b>${(c.listening || []).length}</b><small>a la escucha</small></div>
+        <div class="stat"><b>${wan.length}</b><small>destinos Internet</small></div>
+      </div>` +
+      (c.topProcs && c.topProcs.length ? `<p class="connh">Apps con más conexiones</p><div class="chips">${c.topProcs.map((p) => `<span class="chip">${esc(p.proc)} <b>${p.count}</b></span>`).join("")}</div>` : "") +
+      (wan.length ? `<p class="connh">Destinos de Internet (salientes/entrantes)</p><div class="tablewrap"><table class="devices"><thead><tr><th>Destino</th><th>IP</th><th>Dirección</th><th>Conex.</th><th>App</th></tr></thead><tbody>${wan.map(remoteRow).join("")}</tbody></table></div>` : "") +
+      (lan.length ? `<p class="connh">Conexiones dentro de tu red</p><div class="tablewrap"><table class="devices"><thead><tr><th>Destino</th><th>IP</th><th>Dirección</th><th>Conex.</th><th>App</th></tr></thead><tbody>${lan.map(remoteRow).join("")}</tbody></table></div>` : "") +
+      ((c.listening || []).length ? `<p class="connh">Puertos a la escucha en este PC</p><div class="chips">${c.listening.map((l) => `<span class="chip">${l.proto}/${l.port}${l.proc ? ` <small>${esc(l.proc)}</small>` : ""}</span>`).join("")}</div>` : "");
+  }
+
+  function switchPanel(p) {
+    document.querySelectorAll(".vbtn").forEach((b) => b.classList.toggle("is-active", b.dataset.panel === p));
+    $("#panel-map").hidden = p !== "map";
+    $("#panel-table").hidden = p !== "table";
+    $("#panel-conns").hidden = p !== "conns";
   }
   function renderPorts(ports, names) {
     if (!ports || !ports.length) return '<span class="mac">ninguno</span>';
@@ -149,6 +224,8 @@
   $("#addCompare").addEventListener("click", () => $("#fileInputCmp").click());
   $("#fileInputCmp").addEventListener("change", (e) => { for (const f of e.target.files) importFile(f, true); e.target.value = ""; });
   document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => switchView(t.dataset.view)));
+  document.querySelectorAll(".vbtn").forEach((b) => b.addEventListener("click", () => switchPanel(b.dataset.panel)));
+  $("#graphReset").addEventListener("click", () => { if (graph) graph.reset(); });
   $("#modal").addEventListener("click", (e) => { if (e.target === $("#modal")) { $("#modalCancel").click(); } });
 
   loadNetwork();

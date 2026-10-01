@@ -47,12 +47,36 @@
           <button class="btn btn--ghost" id="importBtn" type="button">Importar .enredo</button>
         </div>
       </div>
-      <div class="tablewrap">
-        <table class="devices">
-          <thead><tr><th>IP</th><th>Dispositivo</th><th>Fabricante</th><th>Tipo</th><th>MAC</th><th>Puertos abiertos</th></tr></thead>
-          <tbody id="devBody"></tbody>
-        </table>
+
+      <div class="viewswitch">
+        <button class="vbtn is-active" data-panel="map" type="button">🕸 Mapa</button>
+        <button class="vbtn" data-panel="table" type="button">▤ Tabla</button>
+        <button class="vbtn" data-panel="conns" id="connsTabBtn" type="button" hidden>🔌 Conexiones del PC</button>
       </div>
+
+      <div id="panel-map" class="panel">
+        <div class="graphstage">
+          <div class="graphwrap" id="graphwrap"></div>
+          <div class="graphlegend" id="graphLegend"></div>
+          <button class="btn btn--ghost graphreset" id="graphReset" type="button">Centrar</button>
+          <p class="graphhint">Arrastra los nodos · rueda para zoom · pasa el ratón para ver detalles</p>
+        </div>
+        <div class="nodedetail" id="nodeDetail" hidden></div>
+      </div>
+
+      <div id="panel-table" class="panel" hidden>
+        <div class="tablewrap">
+          <table class="devices">
+            <thead><tr><th>IP</th><th>Dispositivo</th><th>Fabricante</th><th>Tipo</th><th>MAC</th><th>Latencia</th><th>Puertos abiertos</th></tr></thead>
+            <tbody id="devBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="panel-conns" class="panel" hidden>
+        <div id="connsBody"></div>
+      </div>
+
       <p class="badge-mode" id="modeBadge" hidden></p>
     </div>
   </section>
@@ -81,6 +105,7 @@
 <div class="toasts" id="toasts"></div>
 
 <script src="/enredo.js"></script>
+<script src="/graph.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
