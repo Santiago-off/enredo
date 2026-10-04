@@ -56,10 +56,12 @@
     return { vendor, ports, type };
   }
 
-  async function deriveKey(pass, salt) {
+  const PBKDF2_ITERS = 600000;        // OWASP 2023 para PBKDF2-HMAC-SHA256 (antes 150000)
+  const PBKDF2_ITERS_LEGACY = 150000; // archivos privados antiguos (cabecera "ENREDO1P.")
+  async function deriveKey(pass, salt, iterations) {
     const base = await crypto.subtle.importKey("raw", te.encode(pass), "PBKDF2", false, ["deriveKey"]);
     return crypto.subtle.deriveKey(
-      { name: "PBKDF2", salt, iterations: 150000, hash: "SHA-256" },
+      { name: "PBKDF2", salt, iterations: iterations || PBKDF2_ITERS, hash: "SHA-256" },
       base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
     );
   }
@@ -74,11 +76,11 @@
     const gz = await gzip(JSON.stringify(data));
     const salt = crypto.getRandomValues(new Uint8Array(16));
     const iv = crypto.getRandomValues(new Uint8Array(12));
-    const key = await deriveKey(pass, salt);
+    const key = await deriveKey(pass, salt, PBKDF2_ITERS);
     const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, gz));
     const out = new Uint8Array(16 + 12 + ct.length);
     out.set(salt, 0); out.set(iv, 16); out.set(ct, 28);
-    return MAGIC + "P." + toB64(out);
+    return MAGIC + "P2." + toB64(out);   // P2 = PBKDF2 600k; "P." (sin 2) = formato antiguo 150k
   }
 
   function peek(str) {
@@ -91,13 +93,16 @@
     str = (str || "").trim();
     if (!str.startsWith(MAGIC)) throw new Error("No es un archivo .enredo válido");
     const m = str[MAGIC.length];
-    const bytes = fromB64(str.slice(MAGIC.length + 2));
-    if (m === "C") return JSON.parse(await gunzip(bytes));
+    if (m === "C") return JSON.parse(await gunzip(fromB64(str.slice(MAGIC.length + 2))));
     if (m === "P") {
       if (!pass) { const e = new Error("Este archivo está cifrado"); e.code = "NEED_PASS"; throw e; }
+      // Versionado del cifrado: "ENREDO1P2." = PBKDF2 600k (nuevo); "ENREDO1P." = 150k (antiguo).
+      const v2 = str[MAGIC.length + 1] === "2";
+      const iterations = v2 ? PBKDF2_ITERS : PBKDF2_ITERS_LEGACY;
+      const bytes = fromB64(str.slice(MAGIC.length + (v2 ? 3 : 2)));
       const salt = bytes.slice(0, 16), iv = bytes.slice(16, 28), ct = bytes.slice(28);
       let pt;
-      try { pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, await deriveKey(pass, salt), ct); }
+      try { pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, await deriveKey(pass, salt, iterations), ct); }
       catch { const e = new Error("Contraseña incorrecta"); e.code = "BAD_PASS"; throw e; }
       return JSON.parse(await gunzip(new Uint8Array(pt)));
     }
